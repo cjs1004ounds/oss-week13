@@ -51,5 +51,29 @@ export async function chat(history) {
 //   { sentiment: "positive" | "negative" | "neutral", score: 1..5, summary: "one short sentence" }
 export async function analyze(text) {
   // TODO P6: write this function (see problems/P6_json.md). Delete the throw line below.
-  throw new Error("analyze() is not written yet");
+  const SYSTEM_JSON = `JSON 으로만 답한다. sentiment: "positive", "negative", "neutral" 중 하나. score: 1 ~ 5의 정수. summary: 한 문장. 키는 sentiment, score, summary 세 개만 쓴다.`;
+  const res = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.LLM_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: process.env.LLM_MODEL,
+      messages: [{role: "system", content: SYSTEM_JSON}, {role: "user", content: text}], 
+      response_format: { type: "json_object", }
+    }),
+  });
+  
+  if (!res.ok) throw new Error(`LLM: HTTP ${res.status}`);
+  const data = await res.json();
+  const {sentiment, score, summary} = JSON.parse(data.choices[0].message.content.trim());
+  if (
+    !["positive", "negative", "neutral"].includes(sentiment) ||
+    !(Number.isInteger(score) && score >= 1 && score <= 5) ||
+    typeof summary !== "string"
+  ) {
+    throw new Error("LLM: the answer has the wrong shape");
+  }
+  return {sentiment, score, summary};
 }
